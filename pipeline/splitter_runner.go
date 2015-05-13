@@ -41,6 +41,8 @@ type SplitterRunner interface {
 	UseMsgBytes() bool
 	IncompleteFinal() bool
 	SetPackDecorator(decorator func(*PipelinePack))
+	SetFileFirst(f bool)
+	GetFileFirst() bool
 }
 
 type sRunner struct {
@@ -54,6 +56,7 @@ type sRunner struct {
 	useMsgBytes     bool
 	reachedEOF      bool
 	incompleteFinal bool
+	isFileFirst     bool
 	unframer        UnframingSplitter
 	ir              InputRunner
 	packDecorator   func(*PipelinePack)
@@ -102,6 +105,14 @@ func (sr *sRunner) LogError(err error) {
 
 func (sr *sRunner) LogMessage(msg string) {
 	LogInfo.Printf("Splitter '%s': %s", sr.name, msg)
+}
+
+func (sr *sRunner) SetFileFirst(first bool) {
+	sr.isFileFirst = first
+}
+
+func (sr *sRunner) GetFileFirst() bool {
+	return sr.isFileFirst
 }
 
 func (sr *sRunner) KeepTruncated() bool {
