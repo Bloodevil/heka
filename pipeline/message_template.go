@@ -77,11 +77,14 @@ func (mt MessageTemplate) PopulateMessage(msg *message.Message, subs map[string]
 				}
 			}
 		default:
-			fi := strings.SplitN(field, "|", 2)
+			fi := strings.SplitN(field, "|", 3)
 			if len(fi) < 2 {
+				fi = append(fi, "", "")
+			} else if len(fi) < 3 {
 				fi = append(fi, "")
 			}
-			f, err := message.NewField(fi[0], val, fi[1])
+			v, _ := TypeConversion(val, fi[2])
+			f, err := message.NewField(fi[0], v, fi[1])
 			msg.AddField(f)
 			if err != nil {
 				return err
@@ -89,6 +92,26 @@ func (mt MessageTemplate) PopulateMessage(msg *message.Message, subs map[string]
 		}
 	}
 	return nil
+}
+
+func TypeConversion(val string, type_ string) (v interface{}, err error) {
+	switch type_ {
+	case "int":
+		v, err = strconv.ParseInt(val, 10, 64)
+	case "bytes":
+		v = []byte(val)
+	case "float":
+		v, err = strconv.ParseFloat(val, 64)
+	case "bool":
+		v, err = strconv.ParseBool(val)
+	default:
+		v = val
+	}
+
+	if err != nil {
+		v = val
+	}
+	return
 }
 
 // Given a regular expression, return the string resulting from interpolating
