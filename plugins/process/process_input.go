@@ -139,7 +139,6 @@ type ProcessInput struct {
 	stdoutSRunner   SplitterRunner
 	stderrDeliverer Deliverer
 	stderrSRunner   SplitterRunner
-	ccDone          map[string]chan bool
 
 	stopChan  chan bool
 	exitError error
@@ -213,9 +212,7 @@ func (pi *ProcessInput) Run(ir InputRunner, h PluginHelper) error {
 	pi.stopChan = make(chan bool)
 	pi.once = sync.Once{}
 	pi.exitError = nil
-	pi.ccDone = make(map[string]chan bool)
 	if pi.parseStdout {
-		pi.ccDone["stdout"] = make(chan bool, 1)
 		pi.stdoutDeliverer, pi.stdoutSRunner = pi.initDelivery("stdout")
 		defer func() {
 			pi.stdoutDeliverer.Done()
@@ -224,7 +221,6 @@ func (pi *ProcessInput) Run(ir InputRunner, h PluginHelper) error {
 	}
 
 	if pi.parseStderr {
-		pi.ccDone["stderr"] = make(chan bool, 1)
 		pi.stderrDeliverer, pi.stderrSRunner = pi.initDelivery("stderr")
 		defer func() {
 			pi.stderrDeliverer.Done()
@@ -264,7 +260,6 @@ func (pi *ProcessInput) initDelivery(streamName string) (Deliverer, SplitterRunn
 				pi.ir.LogError(err)
 			}
 			// Wait for the result for subcommands.
-			<-pi.ccDone[streamName]
 			// Add exit status and subcommand error messages to pack.
 			var r int
 			if exiterr, ok := pi.ccStatus.ExitStatus.(*exec.ExitError); ok {
@@ -374,14 +369,6 @@ func (pi *ProcessInput) runOnce() {
 		go throwAway(stderrReader)
 	}
 	pi.ccStatus = pi.cc.Wait()
-	// Notify decorators.
-	for key, _ := range pi.ccDone {
-		select { // non-blocking it's a notification.
-		case pi.ccDone[key] <- true:
-		default:
-
-		}
-	}
 }
 
 func (pi *ProcessInput) ParseOutput(r io.Reader, deliverer Deliverer,
@@ -395,7 +382,7 @@ func (pi *ProcessInput) ParseOutput(r io.Reader, deliverer Deliverer,
 	// and http://golang.org/pkg/os/exec/#Cmd.StdoutPipe
 	if err != nil && err != io.ErrShortBuffer && err != io.EOF &&
 		!strings.Contains(err.Error(), "read |0: bad file descriptor") {
-
+		pi.ir.LogError(fmt.Errorf("Stream Error [%s]", err.Error()))
 	}
 }
 
